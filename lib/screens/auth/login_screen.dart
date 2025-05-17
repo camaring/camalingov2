@@ -63,8 +63,11 @@ class LoginScreenState extends State<LoginScreen> {
                                 fillColor: AppColors.white,
                               ),
                               validator: (value) {
-                                if (value?.isEmpty ?? true) {
+                                if (value == null || value.isEmpty) {
                                   return 'Please enter your email';
+                                }
+                                if (!value.contains('@') || !value.contains('.')) {
+                                  return 'Please enter a valid email';
                                 }
                                 return null;
                               },

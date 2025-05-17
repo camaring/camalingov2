@@ -1,0 +1,91 @@
+{
+  "project_info": {
+    "project_number": "210891886333",
+    "firebase_url": "https://kitty-expense-managemen-elvbyq-default-rtdb.firebaseio.com",
+    "project_id": "kitty-expense-managemen-elvbyq",
+    "storage_bucket": "kitty-expense-managemen-elvbyq.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:210891886333:android:b3228cb979235297423894",
+        "android_client_info": {
+          "package_name": "com.camalingo2"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "210891886333-h9a3pde2g8hig50t7p70lbhgci8naiet.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.camalingo2",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "210891886333-qpmsj8qqhmv6vlriofd9839anj14dslk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4hQ0QpOQCDovO6FVH-FKEPEg-Kq1h1pQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "210891886333-qpmsj8qqhmv6vlriofd9839anj14dslk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "210891886333-73mou547tlrmr0g3j85qr7ihgqp6bm7g.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.camlingo"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:210891886333:android:e7dc851e5ca46627423894",
+        "android_client_info": {
+          "package_name": "com.example.camalingo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "210891886333-qpmsj8qqhmv6vlriofd9839anj14dslk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4hQ0QpOQCDovO6FVH-FKEPEg-Kq1h1pQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "210891886333-qpmsj8qqhmv6vlriofd9839anj14dslk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "210891886333-73mou547tlrmr0g3j85qr7ihgqp6bm7g.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.camlingo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
