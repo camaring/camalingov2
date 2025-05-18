@@ -1,3 +1,4 @@
+import 'package:camalingo/screens/home/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -5,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'constants.dart';
 import 'screens/splash/splash_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/auth/signup_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -75,7 +78,12 @@ class MyApp extends StatelessWidget {
           iconTheme: IconThemeData(color: AppColors.black),
         ),
       ),
-      home: const SplashScreen(),
+      home: const LoginScreen(),
+      routes: {
+        '/login': (_) => const LoginScreen(),
+        '/signup': (_) => const SignupScreen(),
+        '/home': (_) => const HomeScreen(), // o tu HomeScreen real
+      },
     );
   }
 }
