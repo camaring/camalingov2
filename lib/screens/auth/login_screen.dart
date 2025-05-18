@@ -32,6 +32,26 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      // Reload user to get the latest verification status
+      await FirebaseAuth.instance.currentUser?.reload();
+      final user = FirebaseAuth.instance.currentUser;
+
+      // Check email verification
+      if (user != null && !user.emailVerified) {
+        // Sign out to prevent unverified access
+        await FirebaseAuth.instance.signOut();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Debes verificar tu correo antes de iniciar sesión. '
+              'Revisa tu bandeja y confirma tu dirección de email.'
+            ),
+          ),
+        );
+        setState(() => _loading = false);
+        return; // Detiene el flujo de login
+      }
+
 //intneto login local
 
 // 2) Bloque específico para tu login local

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../constants.dart';
 import '../../services/auth_service.dart';
 import '../home/home_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -113,22 +114,54 @@ class SignupScreenState extends State<SignupScreen> {
                 ElevatedButton(
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
-                      final authService = AuthService();
-                      await authService.signup(
-                        email: _emailController.text,
-                        password: _passwordController.text,
-                        name: _nameController.text,
-                      );
+                     
+                      //local sign up begin
+                      
+                        final authService = AuthService();
+                        await authService.signup(
+                          email: _emailController.text,
+                          password: _passwordController.text,
+                          name: _nameController.text,
+                        );  
 
-                      if (!mounted) {
-                        return; // Verificación de mounted antes de usar context
+                        if (!mounted) {
+                          return; // Verificación de mounted antes de usar context
+                       }
+
+                      //local sign up end
+                     
+                      try {
+                        final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                          email: _emailController.text.trim(),
+                          password: _passwordController.text.trim(),
+                        );
+                        await cred.user?.updateDisplayName(_nameController.text.trim());
+
+                        // Send email verification
+                        await cred.user?.sendEmailVerification();
+
+                        // Inform user that a verification email has been sent
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Correo de verificación enviado a ${_emailController.text.trim()}. '
+                              'Por favor revisa tu bandeja de entrada.'
+                            ),
+                          ),
+                        );
+
+                        // Optionally sign the user out to force verification before login
+                        await FirebaseAuth.instance.signOut();
+
+                        if (!mounted) return;
+
+                        // Redirect back to login screen so user can sign in after verification
+                        Navigator.pushReplacementNamed(context, '/login');
+                      } on FirebaseAuthException catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.message ?? 'Error al registrar usuario')),
+                        );
                       }
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const HomeScreen(),
-                        ),
-                      );
                     }
                   },
                   style: ElevatedButton.styleFrom(
