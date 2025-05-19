@@ -16,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _loading = false;
+  bool _showVerificationButton = false;
 
   @override
   void dispose() {
@@ -48,8 +49,11 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         );
-        setState(() => _loading = false);
-        return; // Detiene el flujo de login
+        setState(() {
+          _loading = false;
+          _showVerificationButton = true;
+        });
+        return;
       }
 
 //intneto login local
@@ -77,6 +81,33 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resendVerificationEmail() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    try {
+      // Re-authenticate the user to send verification
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final user = credential.user;
+      if (user != null && !user.emailVerified) {
+        await user.sendEmailVerification();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Correo de verificación reenviado. Por favor revisa tu bandeja de entrada.')),
+        );
+      }
+      // Sign out again to preserve login flow
+      await FirebaseAuth.instance.signOut();
+      // Oculta el botón tras el reenvío
+      setState(() => _showVerificationButton = false);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al reenviar correo de verificación: $e')),
+      );
     }
   }
 
@@ -114,6 +145,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () => Navigator.pushNamed(context, '/signup'),
                   child: const Text('¿No tienes cuenta? Regístrate'),
                 ),
+                if (_showVerificationButton)
+                  TextButton(
+                    onPressed: _resendVerificationEmail,
+                    child: const Text('Reenviar correo de verificación'),
+                    
+                  ),
               ],
             ),
           ),
