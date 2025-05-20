@@ -5,10 +5,10 @@ import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'constants.dart';
-import 'screens/splash/splash_screen.dart';
+
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
-import 'package:intl/intl.dart';
+
 import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
