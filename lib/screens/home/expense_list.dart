@@ -10,7 +10,7 @@ import '../../services/streak_service.dart';
 class ExpenseList extends StatefulWidget {
   final GlobalKey<ExpenseListState> expenseListKey;
   final Map<int, Category> categoriesMap;
-  final int? selectedCategoryId; // NUEVO
+  final int? selectedCategoryId;
 
   const ExpenseList({
     super.key,
@@ -44,7 +44,15 @@ class ExpenseListState extends State<ExpenseList> {
   void initState() {
     super.initState();
     _loadStreak();
-    refreshExpenses();
+    _loadExpenses();
+  }
+
+  @override
+  void didUpdateWidget(covariant ExpenseList old) {
+    super.didUpdateWidget(old);
+    if (old.selectedCategoryId != widget.selectedCategoryId) {
+      _loadExpenses();
+    }
   }
 
   Future<void> _loadStreak() async {
@@ -88,8 +96,10 @@ class ExpenseListState extends State<ExpenseList> {
     }
   }
 
+  // Permite refrescar la lista desde fuera (por ejemplo, al agregar un gasto)
   Future<void> refreshExpenses() async {
     await _loadExpenses();
+    await _loadStreak();
   }
 
   void _showEditExpenseDialog(Expense expense) {
@@ -171,7 +181,7 @@ class ExpenseListState extends State<ExpenseList> {
                         await _expenseService.updateExpense(updated);
                         if (!mounted) return;
                         Navigator.pop(context);
-                        await refreshExpenses();
+                        await _loadExpenses();
                         await _loadStreak();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -198,7 +208,7 @@ class ExpenseListState extends State<ExpenseList> {
     return SafeArea(
       child: Column(
         children: [
-          // Resumen
+          // --- Resumen ---
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -255,7 +265,6 @@ class ExpenseListState extends State<ExpenseList> {
                     vertical: 16,
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: _buildSummaryCard('Gastos', _totalExpenses),
@@ -273,7 +282,7 @@ class ExpenseListState extends State<ExpenseList> {
             ),
           ),
 
-          // Lista
+          // --- Lista de transacciones ---
           Expanded(
             child:
                 _isLoading
@@ -281,7 +290,7 @@ class ExpenseListState extends State<ExpenseList> {
                     : _expenses.isEmpty
                     ? Center(
                       child: Text(
-                        'No hay transacciones aún.\nToca + para añadir una',
+                        'No hay transacciones aún. Toca + para añadir una',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.body,
                       ),
@@ -314,7 +323,8 @@ class ExpenseListState extends State<ExpenseList> {
                                 content: Text('Transacción eliminada'),
                               ),
                             );
-                            await refreshExpenses();
+                            await _loadExpenses();
+                            await _loadStreak();
                           },
                           child: ListTile(
                             onTap: () => _showEditExpenseDialog(expense),
@@ -351,7 +361,7 @@ class ExpenseListState extends State<ExpenseList> {
   }
 
   Widget _buildSummaryCard(String title, double amount) {
-    final Color color =
+    final color =
         title == 'Gastos'
             ? const Color(0xFFE53935)
             : title == 'Ingresos'
@@ -379,7 +389,6 @@ class ExpenseListState extends State<ExpenseList> {
                 color: color.withAlpha(200),
                 fontWeight: FontWeight.w600,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             FittedBox(
