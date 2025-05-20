@@ -248,7 +248,7 @@ class ExpenseListState extends State<ExpenseList> {
                       Text(
                         'Racha diaria',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 19,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primaryGreen,
                         ),

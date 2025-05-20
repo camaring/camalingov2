@@ -39,12 +39,12 @@ class Expense {
 
   Expense copyWith({double? amount, String? description}) {
     return Expense(
-      id: this.id,
-      userId: this.userId,
-      categoryId: this.categoryId,
+      id: id,
+      userId: userId,
+      categoryId: categoryId,
       amount: amount ?? this.amount,
       description: description ?? this.description,
-      date: this.date,
+      date: date,
     );
   }
 }
