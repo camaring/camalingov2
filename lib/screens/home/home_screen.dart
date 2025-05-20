@@ -23,8 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Map<int, Category> _categoriesMap = {};
   late List<Widget> _screens = [];
-
-  int? _selectedCategoryId; // Para filtrar
+  int? _selectedCategoryId;
 
   @override
   void initState() {
@@ -35,13 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCategoriesAndScreens() async {
     final cats = await ExpenseService().getCategories();
     _categoriesMap = {for (var c in cats) c.id!: c};
-
     _screens = [
       _buildHomeWithFilter(),
       const StatsScreen(),
       const SettingsScreen(),
     ];
-
     setState(() {});
   }
 
@@ -49,31 +46,58 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-          child: DropdownButtonFormField<int?>(
-            value: _selectedCategoryId,
-            decoration: const InputDecoration(
-              labelText: 'Filtrar por categoría',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem<int?>(
-                value: null,
-                child: Text('Todas las categorías'),
-              ),
-              ..._categoriesMap.entries.map(
-                (entry) => DropdownMenuItem<int?>(
-                  value: entry.key,
-                  child: Text('${entry.value.icon} ${entry.value.name}'),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          child: Row(
+            children: [
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int?>(
+                    value: _selectedCategoryId,
+                    hint: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.filter_list, color: Colors.green),
+                        SizedBox(width: 6),
+                        Text('Filtro', style: TextStyle(color: Colors.white)),
+                      ],
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_drop_down,
+                      color: Colors.white,
+                    ),
+                    dropdownColor: Colors.grey,
+                    style: const TextStyle(color: Colors.black),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('Todas las categorías'),
+                      ),
+                      ..._categoriesMap.entries.map(
+                        (e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text('${e.value.icon} ${e.value.name}'),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) {
+                      setState(() {
+                        _selectedCategoryId = v;
+                        _screens[0] = _buildHomeWithFilter();
+                      });
+                    },
+                  ),
                 ),
               ),
             ],
-            onChanged: (value) {
-              setState(() {
-                _selectedCategoryId = value;
-                _screens[0] = _buildHomeWithFilter(); // reconstruir vista
-              });
-            },
           ),
         ),
         Expanded(
@@ -88,15 +112,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _handleAddCategory(BuildContext context) async {
+  Future<void> _handleAddCategory(BuildContext ctx) async {
     final nameCtrl = TextEditingController();
     final iconCtrl = TextEditingController();
-    final service = ExpenseService();
-
     await showDialog<void>(
-      context: context,
+      context: ctx,
       builder:
-          (ctx) => AlertDialog(
+          (_) => AlertDialog(
             title: const Text('Agregar Categoría'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -126,11 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ElevatedButton(
                 onPressed: () async {
                   if (nameCtrl.text.isEmpty) return;
-                  final cat = Category(
-                    name: nameCtrl.text,
-                    icon: iconCtrl.text,
+                  await ExpenseService().addCategory(
+                    Category(name: nameCtrl.text, icon: iconCtrl.text),
                   );
-                  await service.addCategory(cat);
                   Navigator.pop(ctx);
                   await _loadCategoriesAndScreens();
                 },
@@ -148,194 +168,167 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAddExpenseDialog() {
-    final authService = AuthService();
-    final expenseService = ExpenseService();
-    final navigator = Navigator.of(context);
-    final scaffold = ScaffoldMessenger.of(context);
-
-    Future<void> showExpenseDialog() async {
-      final userId = await authService.getCurrentUserId();
-      if (userId == null) {
-        scaffold.showSnackBar(
-          const SnackBar(
-            content: Text('Por favor inicia sesión para agregar transacciones'),
-          ),
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        final amountCtrl = MoneyMaskedTextController(
+          decimalSeparator: ',',
+          thousandSeparator: '.',
+          precision: 2,
         );
-        return;
-      }
+        final descCtrl = TextEditingController();
+        Category? selectedCat = _categoriesMap.values.first;
+        DateTime date = DateTime.now();
+        bool isExpense = true;
 
-      final categories = await expenseService.getCategories();
-      if (!mounted) return;
-
-      final amountController = MoneyMaskedTextController(
-        decimalSeparator: ',',
-        thousandSeparator: '.',
-        precision: 2,
-      );
-      final descriptionController = TextEditingController();
-      Category? selectedCategory =
-          categories.isNotEmpty ? categories.first : null;
-      DateTime selectedDate = DateTime.now();
-      bool isExpense = true;
-
-      await showDialog<void>(
-        context: context,
-        builder:
-            (ctx) => StatefulBuilder(
-              builder:
-                  (ctx, setState) => AlertDialog(
-                    title: const Text(
-                      'Agregar Transacción',
-                      style: AppTextStyles.heading2,
-                    ),
-                    content: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment<bool>(
-                                value: true,
-                                label: Text('Gasto'),
-                                icon: Icon(Icons.remove_circle_outline),
-                              ),
-                              ButtonSegment<bool>(
-                                value: false,
-                                label: Text('Ingreso'),
-                                icon: Icon(Icons.add_circle_outline),
-                              ),
-                            ],
-                            selected: {isExpense},
-                            onSelectionChanged:
-                                (sel) => setState(() => isExpense = sel.first),
+        return StatefulBuilder(
+          builder:
+              (ctx, setState) => AlertDialog(
+                title: const Text(
+                  'Agregar Transacción',
+                  style: AppTextStyles.heading2,
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: true,
+                            label: Text('Gasto'),
+                            icon: Icon(Icons.remove_circle_outline),
                           ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: amountController,
-                            decoration: const InputDecoration(
-                              labelText: 'Monto',
-                              prefixText: '\$ ',
-                              border: OutlineInputBorder(),
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: descriptionController,
-                            decoration: const InputDecoration(
-                              labelText: 'Descripción',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (selectedCategory != null)
-                            DropdownButtonFormField<Category>(
-                              value: selectedCategory,
-                              decoration: InputDecoration(
-                                labelText: 'Categoría',
-                                border: const OutlineInputBorder(),
-                                suffixIcon: IconButton(
-                                  icon: const Icon(Icons.add),
-                                  onPressed: () async {
-                                    Navigator.pop(ctx);
-                                    await _handleAddCategory(context);
-                                    _showAddExpenseDialog();
-                                  },
-                                ),
-                              ),
-                              items:
-                                  categories
-                                      .map(
-                                        (cat) => DropdownMenuItem(
-                                          value: cat,
-                                          child: Text(
-                                            '${cat.icon}  ${cat.name}',
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                              onChanged:
-                                  (cat) =>
-                                      setState(() => selectedCategory = cat),
-                            ),
-                          const SizedBox(height: 16),
-                          InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: ctx,
-                                initialDate: selectedDate,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime.now(),
-                              );
-                              if (picked != null)
-                                setState(() => selectedDate = picked);
-                            },
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Fecha',
-                                border: OutlineInputBorder(),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-                                  ),
-                                  const Icon(Icons.calendar_today),
-                                ],
-                              ),
-                            ),
+                          ButtonSegment(
+                            value: false,
+                            label: Text('Ingreso'),
+                            icon: Icon(Icons.add_circle_outline),
                           ),
                         ],
+                        selected: {isExpense},
+                        onSelectionChanged:
+                            (sel) => setState(() => isExpense = sel.first),
                       ),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => navigator.pop(),
-                        child: const Text('Cancelar'),
-                      ),
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (amountController.text.isEmpty ||
-                              selectedCategory == null) {
-                            scaffold.showSnackBar(
-                              const SnackBar(
-                                content: Text('Completa todos los campos'),
-                              ),
-                            );
-                            return;
-                          }
-                          final rawAmount = amountController.numberValue;
-                          final expense = Expense(
-                            id: null,
-                            userId: userId,
-                            categoryId: selectedCategory!.id!,
-                            amount: isExpense ? -rawAmount : rawAmount,
-                            description: descriptionController.text,
-                            date: selectedDate,
-                          );
-                          await expenseService.addExpense(expense);
-                          navigator.pop();
-                          _expenseListKey.currentState?.refreshExpenses();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryGreen,
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: amountCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Monto',
+                          prefixText: '\$ ',
+                          border: OutlineInputBorder(),
                         ),
-                        child: const Text(
-                          'Guardar',
-                          style: TextStyle(color: AppColors.black),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: descCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Descripción',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<Category>(
+                        value: selectedCat,
+                        decoration: InputDecoration(
+                          labelText: 'Categoría',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              await _handleAddCategory(context);
+                              _showAddExpenseDialog();
+                            },
+                          ),
+                        ),
+                        items:
+                            _categoriesMap.entries
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e.value,
+                                    child: Text(
+                                      '${e.value.icon} ${e.value.name}',
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (c) => setState(() => selectedCat = c),
+                      ),
+                      const SizedBox(height: 16),
+                      InkWell(
+                        onTap: () async {
+                          final pick = await showDatePicker(
+                            context: ctx,
+                            initialDate: date,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (pick != null) setState(() => date = pick);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Fecha',
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${date.day}/${date.month}/${date.year}'),
+                              const Icon(Icons.calendar_today),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
-            ),
-      );
-    }
-
-    showExpenseDialog();
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancelar'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final uid = await AuthService().getCurrentUserId();
+                      if (uid == null) return;
+                      if (amountCtrl.text.isEmpty || selectedCat == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Completa todos los campos'),
+                          ),
+                        );
+                        return;
+                      }
+                      final raw = amountCtrl.numberValue;
+                      await ExpenseService().addExpense(
+                        Expense(
+                          id: null,
+                          userId: uid,
+                          categoryId: selectedCat!.id!,
+                          amount: isExpense ? -raw : raw,
+                          description: descCtrl.text,
+                          date: date,
+                        ),
+                      );
+                      Navigator.pop(ctx);
+                      _expenseListKey.currentState?.refreshExpenses();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                    ),
+                    child: const Text(
+                      'Guardar',
+                      style: TextStyle(color: AppColors.black),
+                    ),
+                  ),
+                ],
+              ),
+        );
+      },
+    );
   }
 
   @override
@@ -343,10 +336,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
         title: Row(
           children: [
             Icon(Icons.savings_outlined, color: AppColors.primaryGreen),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Text(
               'Savemeleon',
               style: AppTextStyles.heading2.copyWith(
@@ -355,8 +350,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        backgroundColor: AppColors.white,
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.lightbulb_outline, color: Color(0xFFFFDA07)),
@@ -367,14 +360,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 context: context,
                 builder:
                     (_) => AlertDialog(
-                      backgroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(color: Colors.amber, width: 2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      title: const Text(
-                        '💡 Tip de Ahorro',
-                        style: AppTextStyles.heading3,
+                      title: Row(
+                        children: [
+                          Image.asset('assets/tips.png', width: 60, height: 60),
+                          const SizedBox(width: 10),
+                          const Text(
+                            '💡 Tip de Ahorro',
+                            style: AppTextStyles.heading3,
+                          ),
+                        ],
                       ),
                       content: Text(tip, style: AppTextStyles.body),
                       actions: [
@@ -395,6 +389,8 @@ class _HomeScreenState extends State<HomeScreen> {
               : _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
+        selectedItemColor: AppColors.primaryGreen,
+        unselectedItemColor: Colors.grey,
         onTap: (i) => setState(() => _selectedIndex = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
@@ -404,8 +400,6 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Settings',
           ),
         ],
-        selectedItemColor: AppColors.primaryGreen,
-        unselectedItemColor: Colors.grey,
       ),
       floatingActionButton:
           _selectedIndex == 0
