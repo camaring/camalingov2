@@ -28,21 +28,22 @@ class SignupScreenState extends State<SignupScreen> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.black),
           onPressed: () {
-            if (!mounted) {
-              return; // Verificación de mounted antes de usar context
-            }
+            if (!mounted) return;
             Navigator.pop(context);
           },
         ),
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
           child: Form(
             key: _formKey,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // LOGO
+                Image.asset('assets/Logo.png', height: 120),
+                const SizedBox(height: 20),
                 Text('Create Account', style: AppTextStyles.heading1),
                 const SizedBox(height: 40),
                 TextFormField(
@@ -114,59 +115,55 @@ class SignupScreenState extends State<SignupScreen> {
                 ElevatedButton(
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
-                     
-                      //local sign up begin
-                      
-                        final authService = AuthService();
-                        await authService.signup(
-                          email: _emailController.text,
-                          password: _passwordController.text,
-                          name: _nameController.text,
-                        );  
+                      // Local sign up
+                      final authService = AuthService();
+                      await authService.signup(
+                        email: _emailController.text,
+                        password: _passwordController.text,
+                        name: _nameController.text,
+                      );
 
-                        if (!mounted) {
-                          return; // Verificación de mounted antes de usar context
-                       }
+                      if (!mounted) return;
 
-                      //local sign up end
-                     
                       try {
-                        final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-                          email: _emailController.text.trim(),
-                          password: _passwordController.text.trim(),
+                        final cred = await FirebaseAuth.instance
+                            .createUserWithEmailAndPassword(
+                              email: _emailController.text.trim(),
+                              password: _passwordController.text.trim(),
+                            );
+                        await cred.user?.updateDisplayName(
+                          _nameController.text.trim(),
                         );
-                        await cred.user?.updateDisplayName(_nameController.text.trim());
-
-                        // Send email verification
                         await cred.user?.sendEmailVerification();
 
-                        // Inform user that a verification email has been sent
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
                               'Correo de verificación enviado a ${_emailController.text.trim()}. '
-                              'Por favor revisa tu bandeja de entrada.'
+                              'Por favor revisa tu bandeja de entrada.',
                             ),
                           ),
                         );
 
-                        // Optionally sign the user out to force verification before login
                         await FirebaseAuth.instance.signOut();
 
                         if (!mounted) return;
 
-                        // Redirect back to login screen so user can sign in after verification
                         Navigator.pushReplacementNamed(context, '/login');
                       } on FirebaseAuthException catch (e) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(e.message ?? 'Error al registrar usuario')),
+                          SnackBar(
+                            content: Text(
+                              e.message ?? 'Error al registrar usuario',
+                            ),
+                          ),
                         );
                       }
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
-                    minimumSize: Size(double.infinity, 50),
+                    minimumSize: const Size(double.infinity, 50),
                   ),
                   child: Text(
                     'Sign Up',

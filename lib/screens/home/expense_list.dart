@@ -2,14 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../constants.dart';
 import '../../models/expense.dart';
+import '../../models/category.dart';
 import '../../services/expense_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/streak_service.dart';
 
 class ExpenseList extends StatefulWidget {
-  const ExpenseList({super.key, required this.expenseListKey});
-
   final GlobalKey<ExpenseListState> expenseListKey;
+  final Map<int, Category> categoriesMap;
+  final int? selectedCategoryId; // NUEVO
+
+  const ExpenseList({
+    super.key,
+    required this.expenseListKey,
+    required this.categoriesMap,
+    this.selectedCategoryId,
+  });
 
   @override
   State<ExpenseList> createState() => ExpenseListState();
@@ -28,34 +36,42 @@ class ExpenseListState extends State<ExpenseList> {
   double _total = 0;
   bool _isLoading = false;
   int _streakCount = 0;
+
   final _authService = AuthService();
   final _expenseService = ExpenseService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStreak();
+    refreshExpenses();
+  }
 
   Future<void> _loadStreak() async {
     final count = await StreakService.updateAndGetStreak();
     if (mounted) setState(() => _streakCount = count);
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadStreak();
-    _loadExpenses();
-  }
-
   Future<void> _loadExpenses() async {
     if (_isLoading) return;
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     try {
       final userId = await _authService.getCurrentUserId();
       if (userId == null) return;
+
       final stats = await _expenseService.getStats(userId);
-      final expenses = await _expenseService.getExpenses(userId);
+      final allExpenses = await _expenseService.getExpenses(userId);
+
+      final filtered =
+          widget.selectedCategoryId == null
+              ? allExpenses
+              : allExpenses
+                  .where((e) => e.categoryId == widget.selectedCategoryId)
+                  .toList();
+
       if (!mounted) return;
       setState(() {
-        _expenses = expenses;
+        _expenses = filtered;
         _totalExpenses = (stats['totalExpenses'] as num).toDouble();
         _totalIncome = (stats['totalIncome'] as num).toDouble();
         _total = (stats['total'] as num).toDouble();
@@ -68,11 +84,7 @@ class ExpenseListState extends State<ExpenseList> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -103,12 +115,12 @@ class ExpenseListState extends State<ExpenseList> {
                       children: [
                         SegmentedButton<bool>(
                           segments: const [
-                            ButtonSegment<bool>(
+                            ButtonSegment(
                               value: true,
                               label: Text('Gasto'),
                               icon: Icon(Icons.remove_circle_outline),
                             ),
-                            ButtonSegment<bool>(
+                            ButtonSegment(
                               value: false,
                               label: Text('Ingreso'),
                               icon: Icon(Icons.add_circle_outline),
@@ -157,11 +169,10 @@ class ExpenseListState extends State<ExpenseList> {
                           description: descCtrl.text,
                         );
                         await _expenseService.updateExpense(updated);
-                        if (!mounted) {
-                          return; // Verificación de mounted antes de usar context
-                        }
+                        if (!mounted) return;
                         Navigator.pop(context);
                         await refreshExpenses();
+                        await _loadStreak();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Transacción actualizada'),
@@ -187,7 +198,7 @@ class ExpenseListState extends State<ExpenseList> {
     return SafeArea(
       child: Column(
         children: [
-          // Resumen superior
+          // Resumen
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -262,7 +273,7 @@ class ExpenseListState extends State<ExpenseList> {
             ),
           ),
 
-          // Lista de transacciones
+          // Lista
           Expanded(
             child:
                 _isLoading
@@ -270,7 +281,7 @@ class ExpenseListState extends State<ExpenseList> {
                     : _expenses.isEmpty
                     ? Center(
                       child: Text(
-                        'No expenses yet.\nToca + para añadir una',
+                        'No hay transacciones aún.\nToca + para añadir una',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.body,
                       ),
@@ -279,6 +290,9 @@ class ExpenseListState extends State<ExpenseList> {
                       itemCount: _expenses.length,
                       itemBuilder: (context, index) {
                         final expense = _expenses[index];
+                        final cat = widget.categoriesMap[expense.categoryId];
+                        final emoji = cat?.icon ?? '❓';
+                        final catName = cat?.name ?? '';
                         return Dismissible(
                           key: ValueKey(expense.id),
                           direction: DismissDirection.endToStart,
@@ -306,11 +320,14 @@ class ExpenseListState extends State<ExpenseList> {
                             onTap: () => _showEditExpenseDialog(expense),
                             leading: CircleAvatar(
                               backgroundColor: AppColors.primaryGreen,
-                              child: const Text('💰'),
+                              child: Text(
+                                emoji,
+                                style: const TextStyle(fontSize: 24),
+                              ),
                             ),
                             title: Text(expense.description),
                             subtitle: Text(
-                              DateFormat('dd/MM/yyyy').format(expense.date),
+                              '$catName · ${DateFormat('dd/MM/yyyy').format(expense.date)}',
                               style: AppTextStyles.body,
                             ),
                             trailing: Text(
@@ -334,14 +351,12 @@ class ExpenseListState extends State<ExpenseList> {
   }
 
   Widget _buildSummaryCard(String title, double amount) {
-    final Color color;
-    if (title == 'Gastos') {
-      color = const Color(0xFFE53935);
-    } else if (title == 'Ingresos') {
-      color = const Color(0xFF43A047);
-    } else {
-      color = const Color(0xFFFBC02D);
-    }
+    final Color color =
+        title == 'Gastos'
+            ? const Color(0xFFE53935)
+            : title == 'Ingresos'
+            ? const Color(0xFF43A047)
+            : const Color(0xFFFBC02D);
 
     return Card(
       elevation: 0,
@@ -365,8 +380,6 @@ class ExpenseListState extends State<ExpenseList> {
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
             FittedBox(
@@ -383,7 +396,6 @@ class ExpenseListState extends State<ExpenseList> {
                               ? const Color(0xFFE53935)
                               : const Color(0xFF43A047)),
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
           ],

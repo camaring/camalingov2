@@ -64,15 +64,23 @@ class DatabaseHelper {
     // Create indexes for better performance
     await db.execute('CREATE INDEX idx_expenses_userId ON expenses(userId)');
     await db.execute('CREATE INDEX idx_expenses_date ON expenses(date)');
-    await db.execute('CREATE INDEX idx_expenses_categoryId ON expenses(categoryId)');
+    await db.execute(
+      'CREATE INDEX idx_expenses_categoryId ON expenses(categoryId)',
+    );
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       // Add indexes in upgrade
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_userId ON expenses(userId)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_expenses_categoryId ON expenses(categoryId)');
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_expenses_userId ON expenses(userId)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)',
+      );
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_expenses_categoryId ON expenses(categoryId)',
+      );
     }
   }
 }

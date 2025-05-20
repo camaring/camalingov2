@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../constants.dart';
 import '../../services/auth_service.dart';
-import '../../constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -28,24 +27,24 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
+
     try {
+      // 1. Autenticación con Firebase
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // Reload user to get the latest verification status
-      await FirebaseAuth.instance.currentUser?.reload();
-      final user = FirebaseAuth.instance.currentUser;
 
-      // Check email verification
-      if (user != null && !user.emailVerified) {
-        // Sign out to prevent unverified access
+      await FirebaseAuth.instance.currentUser?.reload();
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+
+      if (firebaseUser != null && !firebaseUser.emailVerified) {
         await FirebaseAuth.instance.signOut();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'Debes verificar tu correo antes de iniciar sesión. '
-              'Revisa tu bandeja y confirma tu dirección de email.'
+              'Revisa tu bandeja y confirma tu dirección de email.',
             ),
           ),
         );
@@ -56,24 +55,20 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-//intneto login local
-
-// 2) Bloque específico para tu login local
-    try {
+      // 2. Guardar datos localmente con AuthService
       final authService = AuthService();
       await authService.login(
-        _emailController.text.trim(),
+        firebaseUser?.email ?? '',
         _passwordController.text.trim(),
       );
-    } catch (e) {
-      // Manejo puntual de error en login local
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error en login local: $e')),
+      await authService.updateUserProfile(
+        name:
+            firebaseUser?.displayName ??
+            (firebaseUser?.email?.split('@')[0] ?? 'Usuario'),
+        email: firebaseUser?.email ?? '',
       );
-    return; // cortamos la ejecución si falla aquí
-  }
 
-// fin intento login local
+      // 3. Navegación
       Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -88,7 +83,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     try {
-      // Re-authenticate the user to send verification
       final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -97,12 +91,14 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null && !user.emailVerified) {
         await user.sendEmailVerification();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Correo de verificación reenviado. Por favor revisa tu bandeja de entrada.')),
+          SnackBar(
+            content: Text(
+              'Correo de verificación reenviado. Revisa tu bandeja de entrada.',
+            ),
+          ),
         );
       }
-      // Sign out again to preserve login flow
       await FirebaseAuth.instance.signOut();
-      // Oculta el botón tras el reenvío
       setState(() => _showVerificationButton = false);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,25 +118,41 @@ class _LoginScreenState extends State<LoginScreen> {
             key: _formKey,
             child: Column(
               children: [
-                Text('Iniciar Sesión', style: Theme.of(context).textTheme.headlineMedium),
+                // LOGO
+                Image.asset('assets/Logo.png', height: 120),
+                const SizedBox(height: 20),
+                Text(
+                  'Iniciar Sesión',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(labelText: 'Email'),
-                  validator: (val) =>
-                      val != null && val.contains('@') && val.contains('.') ? null : 'Ingrese un email válido',
+                  validator:
+                      (val) =>
+                          val != null && val.contains('@') && val.contains('.')
+                              ? null
+                              : 'Ingrese un email válido',
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _passwordController,
                   decoration: const InputDecoration(labelText: 'Contraseña'),
                   obscureText: true,
-                  validator: (val) => val != null && val.length >= 6 ? null : 'La contraseña debe tener al menos 6 caracteres',
+                  validator:
+                      (val) =>
+                          val != null && val.length >= 6
+                              ? null
+                              : 'La contraseña debe tener al menos 6 caracteres',
                 ),
                 const SizedBox(height: 20),
                 _loading
                     ? const CircularProgressIndicator()
-                    : ElevatedButton(onPressed: _login, child: const Text('Entrar')),
+                    : ElevatedButton(
+                      onPressed: _login,
+                      child: const Text('Entrar'),
+                    ),
                 TextButton(
                   onPressed: () => Navigator.pushNamed(context, '/signup'),
                   child: const Text('¿No tienes cuenta? Regístrate'),
@@ -149,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextButton(
                     onPressed: _resendVerificationEmail,
                     child: const Text('Reenviar correo de verificación'),
-                    
                   ),
               ],
             ),

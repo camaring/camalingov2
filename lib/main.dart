@@ -8,13 +8,13 @@ import 'constants.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   print('✅ Firebase initialized: ${Firebase.app().name}');
   print('   Project ID: ${Firebase.app().options.projectId}');
   print('   App ID:     ${Firebase.app().options.appId}');
@@ -24,39 +24,44 @@ Future<void> main() async {
   print('   Messaging URL: ${Firebase.app().options.messagingSenderId}');
   // 2. Prueba de conexión a Firestore
   try {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('connection_test')
-        .doc('ping')
-        .get();
+    final snapshot =
+        await FirebaseFirestore.instance
+            .collection('connection_test')
+            .doc('ping')
+            .get();
     if (snapshot.exists) {
       print('✅ Firestore reachable, document data: ${snapshot.data()}');
     } else {
-      print('ℹ️ Firestore reachable, pero el doc “connection_test/ping” no existe.');
+      print(
+        'ℹ️ Firestore reachable, pero el doc “connection_test/ping” no existe.',
+      );
     }
   } catch (e) {
     print('❌ Error conectando a Firestore: $e');
   }
   final user = FirebaseAuth.instance.currentUser;
-print(user == null
-  ? 'No hay usuario logueado (pero Firebase está funcionando)'
-  : 'Usuario logueado: ${user.uid}');
-try {
-  final cred = await FirebaseAuth.instance.signInAnonymously();
-  print('✅ Anon user signed in: ${cred.user!.uid}');
-} catch (e) {
-  print('❌ Error en Auth anon: $e');
-}
-try {
-  final cred = await FirebaseAuth.instance
-    .signInWithEmailAndPassword(
-      email: 'camiman13@hotmail.com', 
-      password: 'camilo12'
+  print(
+    user == null
+        ? 'No hay usuario logueado (pero Firebase está funcionando)'
+        : 'Usuario logueado: ${user.uid}',
+  );
+  try {
+    final cred = await FirebaseAuth.instance.signInAnonymously();
+    print('✅ Anon user signed in: ${cred.user!.uid}');
+  } catch (e) {
+    print('❌ Error en Auth anon: $e');
+  }
+  try {
+    final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: 'camiman13@hotmail.com',
+      password: 'camilo12',
     );
-  print('✅ Signed in user: ${cred.user!.email}');
-} catch (e) {
-  print('❌ Error en Auth email/pass: $e');
-}
+    print('✅ Signed in user: ${cred.user!.email}');
+  } catch (e) {
+    print('❌ Error en Auth email/pass: $e');
+  }
 
+  await initializeDateFormatting('es_CO', null);
 
   runApp(const MyApp());
 }

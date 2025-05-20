@@ -20,16 +20,72 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final _expenseListKey = GlobalKey<ExpenseListState>();
-  late final List<Widget> _screens;
+
+  Map<int, Category> _categoriesMap = {};
+  late List<Widget> _screens = [];
+
+  int? _selectedCategoryId; // Para filtrar
 
   @override
   void initState() {
     super.initState();
+    _loadCategoriesAndScreens();
+  }
+
+  Future<void> _loadCategoriesAndScreens() async {
+    final cats = await ExpenseService().getCategories();
+    _categoriesMap = {for (var c in cats) c.id!: c};
+
     _screens = [
-      ExpenseList(key: _expenseListKey, expenseListKey: _expenseListKey),
+      _buildHomeWithFilter(),
       const StatsScreen(),
       const SettingsScreen(),
     ];
+
+    setState(() {});
+  }
+
+  Widget _buildHomeWithFilter() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+          child: DropdownButtonFormField<int?>(
+            value: _selectedCategoryId,
+            decoration: const InputDecoration(
+              labelText: 'Filtrar por categoría',
+              border: OutlineInputBorder(),
+            ),
+            items: [
+              const DropdownMenuItem<int?>(
+                value: null,
+                child: Text('Todas las categorías'),
+              ),
+              ..._categoriesMap.entries.map(
+                (entry) => DropdownMenuItem<int?>(
+                  value: entry.key,
+                  child: Text('${entry.value.icon} ${entry.value.name}'),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _selectedCategoryId = value;
+                _screens[0] = _buildHomeWithFilter(); // reconstruir vista
+              });
+            },
+          ),
+        ),
+        Expanded(
+          child: ExpenseList(
+            key: _expenseListKey,
+            expenseListKey: _expenseListKey,
+            categoriesMap: _categoriesMap,
+            selectedCategoryId: _selectedCategoryId,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _handleAddCategory(BuildContext context) async {
@@ -71,12 +127,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () async {
                   if (nameCtrl.text.isEmpty) return;
                   final cat = Category(
-                    id: 0,
                     name: nameCtrl.text,
                     icon: iconCtrl.text,
                   );
                   await service.addCategory(cat);
                   Navigator.pop(ctx);
+                  await _loadCategoriesAndScreens();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryGreen,
@@ -194,7 +250,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       .map(
                                         (cat) => DropdownMenuItem(
                                           value: cat,
-                                          child: Text(cat.name),
+                                          child: Text(
+                                            '${cat.icon}  ${cat.name}',
+                                          ),
                                         ),
                                       )
                                       .toList(),
@@ -211,9 +269,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 firstDate: DateTime(2020),
                                 lastDate: DateTime.now(),
                               );
-                              if (picked != null) {
+                              if (picked != null)
                                 setState(() => selectedDate = picked);
-                              }
                             },
                             child: InputDecorator(
                               decoration: const InputDecoration(
@@ -251,28 +308,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                             return;
                           }
-                          try {
-                            final rawAmount = amountController.numberValue;
-                            final expense = Expense(
-                              id: null, // Permitir que la base de datos genere automáticamente el ID
-                              userId: userId,
-                              categoryId: selectedCategory?.id ?? 0,
-                              amount:
-                                  isExpense
-                                      ? -rawAmount
-                                      : rawAmount, // Gasto negativo, ingreso positivo
-                              description: descriptionController.text,
-                              date: selectedDate,
-                            );
-                            await expenseService.addExpense(expense);
-                            if (!mounted) return;
-                            navigator.pop();
-                            _expenseListKey.currentState?.refreshExpenses();
-                          } catch (e) {
-                            scaffold.showSnackBar(
-                              SnackBar(content: Text('Error al guardar: $e')),
-                            );
-                          }
+                          final rawAmount = amountController.numberValue;
+                          final expense = Expense(
+                            id: null,
+                            userId: userId,
+                            categoryId: selectedCategory!.id!,
+                            amount: isExpense ? -rawAmount : rawAmount,
+                            description: descriptionController.text,
+                            date: selectedDate,
+                          );
+                          await expenseService.addExpense(expense);
+                          navigator.pop();
+                          _expenseListKey.currentState?.refreshExpenses();
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryGreen,
@@ -342,7 +389,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: _screens[_selectedIndex],
+      body:
+          _screens.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (i) => setState(() => _selectedIndex = i),

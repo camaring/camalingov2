@@ -1,7 +1,6 @@
 import '../models/expense.dart' as expense_model;
 import '../models/category.dart' as category_model;
-// Removed unused import for stats_screen.dart
-import '../models/category_monthly_data.dart'; // Corrijo la referencia al archivo
+import '../models/category_monthly_data.dart';
 import 'database_helper.dart';
 
 class ExpenseService {
@@ -13,7 +12,6 @@ class ExpenseService {
   DateTime? _lastExpensesUpdate;
 
   Future<List<expense_model.Expense>> getExpenses(String userId) async {
-    // Return cached expenses if available and less than 1 minute old
     if (_cachedExpenses != null &&
         _cachedUserId == userId &&
         _lastExpensesUpdate != null &&
@@ -21,31 +19,25 @@ class ExpenseService {
             const Duration(minutes: 1)) {
       return _cachedExpenses!;
     }
-
     final db = await _db.database;
-    final expenses = await db.query(
+    final expensesMaps = await db.query(
       'expenses',
       where: 'userId = ?',
       whereArgs: [userId],
       orderBy: 'date DESC',
       limit: 50,
     );
-
-    final result =
-        expenses.map((e) => expense_model.Expense.fromMap(e)).toList();
-
-    // Cache the results
-    _cachedExpenses = result;
+    final expenses =
+        expensesMaps.map((e) => expense_model.Expense.fromMap(e)).toList();
+    _cachedExpenses = expenses;
     _cachedUserId = userId;
     _lastExpensesUpdate = DateTime.now();
-
-    return result;
+    return expenses;
   }
 
   Future<void> addExpense(expense_model.Expense expense) async {
     final db = await _db.database;
     await db.insert('expenses', expense.toMap());
-    // Invalidate caches
     _cachedStats = null;
     _cachedExpenses = null;
   }
@@ -53,7 +45,6 @@ class ExpenseService {
   Future<void> deleteExpense(int id) async {
     final db = await _db.database;
     await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
-    // Invalidate caches
     _cachedStats = null;
     _cachedExpenses = null;
   }
@@ -66,15 +57,14 @@ class ExpenseService {
       where: 'id = ?',
       whereArgs: [expense.id],
     );
-    // Invalidate caches
     _cachedStats = null;
     _cachedExpenses = null;
   }
 
   Future<List<category_model.Category>> getCategories() async {
     final db = await _db.database;
-    final categories = await db.query('categories');
-    return categories.map((c) => category_model.Category.fromMap(c)).toList();
+    final catsMaps = await db.query('categories');
+    return catsMaps.map((c) => category_model.Category.fromMap(c)).toList();
   }
 
   Future<void> addCategory(category_model.Category category) async {
@@ -82,8 +72,9 @@ class ExpenseService {
     await db.insert('categories', category.toMap());
   }
 
+  /// Devuelve totales y datos para la gráfica (incluye `icon`)
   Future<Map<String, dynamic>> getStats(String userId) async {
-    // Return cached stats if available and less than 2 minutes old
+    // Usar caché si está disponible
     if (_cachedStats != null &&
         _cachedUserId == userId &&
         _lastStatsUpdate != null &&
@@ -93,58 +84,101 @@ class ExpenseService {
     }
 
     final db = await _db.database;
-    final List<Map<String, dynamic>> monthlyStats = await db.rawQuery(
+
+    // 1) Totales de los últimos 30 días
+    final totalsQuery = await db.rawQuery(
       '''
       SELECT 
-        SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as totalIncome,
-        SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as totalExpenses,
-        SUM(amount) as total
+        SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END)     AS totalIncome,
+        SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) AS totalExpenses,
+        SUM(amount)                                        AS total
       FROM expenses
-      WHERE userId = ?
-      AND date >= date('now', '-30 days')
-      ''',
+      WHERE userId = ? AND date >= date('now', '-30 days')
+    ''',
+      [userId],
+    );
+    final totalsRow = totalsQuery.first;
+    final totalIncome = (totalsRow['totalIncome'] as num?)?.toDouble() ?? 0.0;
+    final totalExpenses =
+        (totalsRow['totalExpenses'] as num?)?.toDouble() ?? 0.0;
+    final total = (totalsRow['total'] as num?)?.toDouble() ?? 0.0;
+
+    // 2) Datos por categoría y mes (últimos 6 meses), incluyendo icon
+    final rawStats = await db.rawQuery(
+      '''
+      SELECT
+        c.name       AS category,
+        c.icon       AS icon,
+        strftime('%m', e.date)          AS month,
+        CASE WHEN SUM(e.amount) >= 0 THEN 'income' ELSE 'expense' END AS type,
+        SUM(e.amount)                  AS total
+      FROM expenses e
+      JOIN categories c ON e.categoryId = c.id
+      WHERE e.userId = ? AND e.date >= date('now', '-6 months')
+      GROUP BY c.id, month
+      ORDER BY month ASC
+    ''',
       [userId],
     );
 
-    final Map<String, dynamic> stats =
-        monthlyStats.isNotEmpty
-            ? monthlyStats.first
-            : {'totalIncome': 0.0, 'totalExpenses': 0.0, 'total': 0.0};
+    // 3) Agrupar datos para la UI
+    final tempValues = <String, Map<int, double>>{};
+    final tempTypes = <String, String>{};
+    final tempIcons = <String, String>{};
 
-    // Cache the results
+    for (var row in rawStats) {
+      final catName = row['category'] as String;
+      final rawIcon = (row['icon'] as String?) ?? '';
+      final month = int.parse(row['month'] as String);
+      final type = row['type'] as String;
+      final amt = (row['total'] as num?)?.toDouble() ?? 0.0;
+
+      tempValues.putIfAbsent(catName, () => {})[month] = amt.abs();
+      tempTypes[catName] = type;
+      tempIcons[catName] = rawIcon.isNotEmpty ? rawIcon : '❓';
+    }
+
+    final monthlyCategoryStats =
+        tempValues.entries.map((e) {
+          return {
+            'category': e.key,
+            'icon': tempIcons[e.key]!,
+            'type': tempTypes[e.key]!,
+            'monthly': e.value, // Map<int, double>
+          };
+        }).toList();
+
+    // 4) Cachear y devolver
     _cachedStats = {
-      'totalIncome': (stats['totalIncome'] as num?)?.toDouble() ?? 0.0,
-      'totalExpenses': (stats['totalExpenses'] as num?)?.toDouble() ?? 0.0,
-      'total': (stats['total'] as num?)?.toDouble() ?? 0.0,
+      'totalIncome': totalIncome,
+      'totalExpenses': totalExpenses,
+      'total': total,
+      'monthlyCategoryStats': monthlyCategoryStats,
     };
     _cachedUserId = userId;
     _lastStatsUpdate = DateTime.now();
-
     return _cachedStats!;
   }
 
-  /// Devuelve totales de gastos e ingresos para el mes actual
   Future<Map<String, double>> getMonthlyExpensesIncomes(String userId) async {
     final db = await _db.database;
-    final result = await db.rawQuery(
+    final res = await db.rawQuery(
       '''
       SELECT
-        SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) as totalExpenses,
-        SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as totalIncomes
+        SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END) AS totalExpenses,
+        SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END)      AS totalIncomes
       FROM expenses
-      WHERE userId = ?
-        AND date >= date('now', 'start of month')
-      ''',
+      WHERE userId = ? AND date >= date('now', 'start of month')
+    ''',
       [userId],
     );
-    final row = result.first;
+    final row = res.first;
     return {
       'expenses': (row['totalExpenses'] as num?)?.toDouble() ?? 0.0,
       'incomes': (row['totalIncomes'] as num?)?.toDouble() ?? 0.0,
     };
   }
 
-  /// Devuelve datos para gráfico por categoría y mes (últimos [months] meses)
   Future<List<CategoryMonthlyData>> getCategoryMonthlyTotals(
     String userId, {
     int months = 6,
@@ -153,18 +187,19 @@ class ExpenseService {
     final rows = await db.rawQuery(
       '''
       SELECT
-        c.name as category,
-        strftime('%m', date) as month,
-        SUM(amount) as total
+        c.name AS category,
+        strftime('%m', date) AS month,
+        SUM(amount)         AS total
       FROM expenses e
       JOIN categories c ON e.categoryId = c.id
       WHERE e.userId = ?
-        AND date >= date('now', '-\$months months')
+        AND date >= date('now', '-${months} months')
       GROUP BY category, month
       ORDER BY month ASC
-      ''',
+    ''',
       [userId],
     );
+
     const monthNames = [
       '',
       'Ene',
@@ -180,12 +215,12 @@ class ExpenseService {
       'Nov',
       'Dic',
     ];
+
     return rows.map((row) {
       final monthNum = int.parse(row['month'] as String);
-      final monthName = monthNames[monthNum];
       return CategoryMonthlyData(
         categoryName: row['category'] as String,
-        monthName: monthName,
+        monthName: monthNames[monthNum],
         totalAmount: (row['total'] as num?)?.toDouble() ?? 0.0,
       );
     }).toList();
