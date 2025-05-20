@@ -189,7 +189,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundGrey,
       appBar: AppBar(
-        title: const Text('Settings', style: AppTextStyles.heading2),
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/settings.png',
+              width: 60,
+              height: 60,
+            ),
+            const SizedBox(width: 10),
+            const Text('Settings', style: AppTextStyles.heading2),
+          ],
+        ),
         backgroundColor: AppColors.backgroundGrey,
         elevation: 0,
       ),

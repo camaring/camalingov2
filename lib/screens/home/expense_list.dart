@@ -328,11 +328,36 @@ class ExpenseListState extends State<ExpenseList> {
                           },
                           child: ListTile(
                             onTap: () => _showEditExpenseDialog(expense),
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.primaryGreen,
-                              child: Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 24),
+                            leading: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Image.asset(
+                                    expense.amount < 0
+                                        ? 'assets/gasto.png'
+                                        : 'assets/ingreso.png',
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        emoji,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             title: Text(expense.description),
