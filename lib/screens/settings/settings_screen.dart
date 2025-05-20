@@ -14,6 +14,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _auth = AuthService();
   User? _user;
   bool _loading = true;
+  bool _streakOn = false;
   int _streakCount = 0;
 
   @override
@@ -33,8 +34,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadStreak() async {
-    final count = await StreakService.updateAndGetStreak();
-    if (mounted) setState(() => _streakCount = count);
+    final on = await StreakService.isStreakOn();
+    final count = await StreakService.getStreakCount();
+    if (!mounted) return;
+    setState(() {
+      _streakOn = on;
+      _streakCount = count;
+    });
   }
 
   Future<void> _editProfile() async {
@@ -231,15 +237,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.local_fire_department,
-                        color: Colors.grey[600],
+                      Image.asset(
+                        _streakOn ? 'assets/R_prendida.png' : 'assets/R_apagado.png',
+                        width: 24,
+                        height: 24,
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '$_streakCount días de racha',
+                        '$_streakCount días',
                         style: AppTextStyles.body.copyWith(
-                          color: Colors.grey[600],
+                          color: _streakOn ? Colors.red : Colors.grey[600],
                         ),
                       ),
                     ],
