@@ -19,6 +19,9 @@ class _StatsScreenState extends State<StatsScreen> {
   Map<String, dynamic>? _stats;
   bool _isLoading = true;
 
+  DateTime? _startDate;
+  DateTime? _endDate;
+
   // Formateador de moneda con separador de miles y coma decimal
   static final _currencyFormatter = NumberFormat.currency(
     locale: 'es_CO',
@@ -40,7 +43,43 @@ class _StatsScreenState extends State<StatsScreen> {
       final stats = await _expenseService.getStats(userId);
       if (!mounted) return;
       setState(() {
-        _stats = stats;
+        if (_startDate != null || _endDate != null) {
+          final filtered = {
+            'totalIncome': 0.0,
+            'totalExpenses': 0.0,
+            'total': 0.0,
+            'monthlyCategoryStats': <dynamic>[],
+          };
+
+          for (var cat in stats['monthlyCategoryStats']) {
+            final filteredMonthly = <int, num>{};
+            (cat['monthly'] as Map).forEach((key, value) {
+              final monthDate = DateTime(DateTime.now().year, key);
+              if ((_startDate == null || !monthDate.isBefore(_startDate!)) &&
+                  (_endDate == null || !monthDate.isAfter(_endDate!))) {
+                filteredMonthly[key] = value;
+                if (cat['type'] == 'income') {
+                  filtered['totalIncome'] = (filtered['totalIncome'] as double) + value;
+                  filtered['total'] = (filtered['total'] as double) + value;
+                } else if (cat['type'] == 'expense') {
+                  filtered['totalExpenses'] = (filtered['totalExpenses'] as double) + value;
+                  filtered['total'] = (filtered['total'] as double) - value;
+                }
+              }
+            });
+
+            if (filteredMonthly.isNotEmpty) {
+              (filtered['monthlyCategoryStats'] as List).add({
+                'type': cat['type'],
+                'monthly': filteredMonthly,
+              });
+            }
+          }
+
+          _stats = filtered;
+        } else {
+          _stats = stats;
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -69,66 +108,155 @@ class _StatsScreenState extends State<StatsScreen> {
     final total = (_stats!['total'] as num).toDouble();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Estadísticas', style: AppTextStyles.heading2),
-        backgroundColor: AppColors.white,
-        elevation: 0,
-      ),
       backgroundColor: AppColors.white,
-      body: RefreshIndicator(
-        onRefresh: _loadStats,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Resumen del Mes', style: AppTextStyles.heading1),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildSummaryCard('Ingresos', totalIncome, Colors.green),
-                  _buildSummaryCard('Gastos', totalExpenses, Colors.red),
-                  _buildSummaryCard(
-                    'Balance',
-                    total,
-                    total >= 0 ? Colors.green : Colors.red,
-                  ),
-                ],
+      body: Stack(
+        children: [
+          Positioned(
+            top: 50,
+            left: 0,
+            right: 0,
+            child: Align(
+              alignment: Alignment.center,
+              child: Image.asset(
+                'assets/stats.png',
+                width: 80,
+                height: 80,
               ),
-              const SizedBox(height: 20),
-              Text('Últimos 30 días', style: AppTextStyles.heading2),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 200,
-                child: Card(
-                  child: Padding(
+            ),
+          ),
+          Column(
+            children: [
+              AppBar(
+                title: const Text('Estadísticas', style: AppTextStyles.heading2),
+                backgroundColor: AppColors.white,
+                elevation: 0,
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _loadStats,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Balance Total: ${_currencyFormatter.format(total)}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: total >= 0 ? Colors.green : Colors.red,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton.icon(
+                              icon: const Icon(Icons.date_range),
+                              label: Text(_startDate == null
+                                  ? 'Desde'
+                                  : DateFormat.yMMMd().format(_startDate!)),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  setState(() => _startDate = picked);
+                                  _loadStats();
+                                }
+                              },
+                            ),
+                            TextButton.icon(
+                              icon: const Icon(Icons.clear),
+                              label: const Text('Limpiar'),
+                              onPressed: () {
+                                setState(() {
+                                  _startDate = null;
+                                  _endDate = null;
+                                });
+                                _loadStats();
+                              },
+                            ),
+                            TextButton.icon(
+                              icon: const Icon(Icons.date_range),
+                              label: Text(_endDate == null
+                                  ? 'Hasta'
+                                  : DateFormat.yMMMd().format(_endDate!)),
+                              onPressed: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.now(),
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  setState(() => _endDate = picked);
+                                  _loadStats();
+                                }
+                              },
+                            ),
+                          ],
                         ),
+                        Text('Resumen del Mes', style: AppTextStyles.heading1),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildSummaryCard('Ingresos', totalIncome, Colors.green),
+                            _buildSummaryCard('Gastos', totalExpenses, Colors.red),
+                            _buildSummaryCard(
+                              'Balance',
+                              total,
+                              total >= 0 ? Colors.green : Colors.red,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text('Últimos 30 días', style: AppTextStyles.heading2),
                         const SizedBox(height: 10),
-                        Text(
-                          'Ingresos: ${_currencyFormatter.format(totalIncome)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.green,
+                        SizedBox(
+                          height: 200,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Balance Total: ${_currencyFormatter.format(total)}',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: total >= 0 ? Colors.green : Colors.red,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Ingresos: ${_currencyFormatter.format(totalIncome)}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Gastos: ${_currencyFormatter.format(totalExpenses)}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        Text(
-                          'Gastos: ${_currencyFormatter.format(totalExpenses)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.red,
+
+                        // --- Nueva sección: Gráfico de barras ---
+                        const SizedBox(height: 20),
+                        Text('Ingresos vs Gastos por Mes', style: AppTextStyles.heading2),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          height: 300,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: _buildMonthlyIncomeExpenseChart(),
+                            ),
                           ),
                         ),
                       ],
@@ -136,23 +264,9 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                 ),
               ),
-
-              // --- Nueva sección: Gráfico de barras ---
-              const SizedBox(height: 20),
-              Text('Ingresos vs Gastos por Mes', style: AppTextStyles.heading2),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 300,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildMonthlyIncomeExpenseChart(),
-                  ),
-                ),
-              ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -188,8 +302,16 @@ class _StatsScreenState extends State<StatsScreen> {
   List<BarChartGroupData> _buildBarGroups() {
     final data = (_stats!['monthlyCategoryStats'] as List<dynamic>);
     final meses = <int>{};
-    for (var cat in data)
-      meses.addAll((cat['monthly'] as Map).keys.cast<int>());
+    for (var cat in data) {
+      final monthlyMap = (cat['monthly'] as Map).cast<int, num>();
+      for (var key in monthlyMap.keys) {
+        final monthDate = DateTime(DateTime.now().year, key);
+        if ((_startDate == null || !monthDate.isBefore(_startDate!)) &&
+            (_endDate == null || !monthDate.isAfter(_endDate!))) {
+          meses.add(key);
+        }
+      }
+    }
     final sortedMeses = meses.toList()..sort();
 
     return sortedMeses.map((m) {

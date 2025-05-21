@@ -35,6 +35,8 @@ class ExpenseListState extends State<ExpenseList> {
   double _totalIncome = 0;
   double _total = 0;
   bool _isLoading = false;
+
+  bool _streakOn = false;
   int _streakCount = 0;
 
   final _authService = AuthService();
@@ -56,8 +58,14 @@ class ExpenseListState extends State<ExpenseList> {
   }
 
   Future<void> _loadStreak() async {
-    final count = await StreakService.updateAndGetStreak();
-    if (mounted) setState(() => _streakCount = count);
+    await StreakService.recordActivity();
+    final on = await StreakService.isStreakOn();
+    final count = await StreakService.getStreakCount();
+    if (!mounted) return;
+    setState(() {
+      _streakOn = on;
+      _streakCount = count;
+    });
   }
 
   Future<void> _loadExpenses() async {
@@ -222,12 +230,10 @@ class ExpenseListState extends State<ExpenseList> {
             ),
             child: Column(
               children: [
+                // streak header
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 15,
-                    horizontal: 20,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
                   decoration: BoxDecoration(
                     color: AppColors.primaryGreen.withAlpha(10),
                     border: Border(
@@ -248,17 +254,29 @@ class ExpenseListState extends State<ExpenseList> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '$_streakCount días',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryGreen,
-                        ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            _streakOn ? 'assets/R_prendida.png' : 'assets/R_apagado.png',
+                            width: 45,
+                            height: 45,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '$_streakCount días',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
+                // summary cards
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -266,15 +284,11 @@ class ExpenseListState extends State<ExpenseList> {
                   ),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: _buildSummaryCard('Gastos', _totalExpenses),
-                      ),
+                      Expanded(child: _buildSummaryCard('Gastos', _totalExpenses)),
                       const SizedBox(width: 8),
                       Expanded(child: _buildSummaryCard('Saldo', _total)),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildSummaryCard('Ingresos', _totalIncome),
-                      ),
+                      Expanded(child: _buildSummaryCard('Ingresos', _totalIncome)),
                     ],
                   ),
                 ),
@@ -328,11 +342,36 @@ class ExpenseListState extends State<ExpenseList> {
                           },
                           child: ListTile(
                             onTap: () => _showEditExpenseDialog(expense),
-                            leading: CircleAvatar(
-                              backgroundColor: AppColors.primaryGreen,
-                              child: Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 24),
+                            leading: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Image.asset(
+                                    expense.amount < 0
+                                        ? 'assets/gasto.png'
+                                        : 'assets/ingreso.png',
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                  ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Text(
+                                        emoji,
+                                        style: const TextStyle(fontSize: 14),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             title: Text(expense.description),

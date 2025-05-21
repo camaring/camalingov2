@@ -383,10 +383,26 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body:
+      body: Stack(
+        children: [
+          Positioned(
+            top: 350,
+            left: 0,
+            right: 0,
+            height: 360,
+            child: Opacity(
+              opacity: 0.3,
+              child: Image.asset(
+                'assets/fondo_home.png',
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
           _screens.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : _screens[_selectedIndex],
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         selectedItemColor: AppColors.primaryGreen,
