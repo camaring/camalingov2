@@ -320,9 +320,9 @@ class _StatsScreenState extends State<StatsScreen> {
         final tipo = cat['type'] as String;
         final mensualMap = (cat['monthly'] as Map).cast<int, num>();
         final valor = mensualMap[m]?.toDouble() ?? 0;
-        if (tipo == 'income')
+        if (tipo == 'income') {
           ingreso += valor;
-        else if (tipo == 'expense')
+        } else if (tipo == 'expense')
           gasto += valor;
       }
       return BarChartGroupData(

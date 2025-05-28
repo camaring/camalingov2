@@ -193,7 +193,7 @@ class ExpenseService {
       FROM expenses e
       JOIN categories c ON e.categoryId = c.id
       WHERE e.userId = ?
-        AND date >= date('now', '-${months} months')
+        AND date >= date('now', '-$months months')
       GROUP BY category, month
       ORDER BY month ASC
     ''',
