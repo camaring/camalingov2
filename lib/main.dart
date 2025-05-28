@@ -22,6 +22,9 @@ Future<void> main() async {
   print('   Auth domain: ${Firebase.app().options.authDomain}');
   print('   Storage URL: ${Firebase.app().options.storageBucket}');
   print('   Messaging URL: ${Firebase.app().options.messagingSenderId}');
+  print('   Database URL: ${Firebase.app().options.databaseURL}');
+  print('   Storage bucket: ${Firebase.app().options.storageBucket}');
+ 
   // 2. Prueba de conexión a Firestore
   try {
     final snapshot =
