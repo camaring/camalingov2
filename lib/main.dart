@@ -15,6 +15,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+// 1.  firebase test, connection details
   print('✅ Firebase initialized: ${Firebase.app().name}');
   print('   Project ID: ${Firebase.app().options.projectId}');
   print('   App ID:     ${Firebase.app().options.appId}');
@@ -25,7 +26,7 @@ Future<void> main() async {
   print('   Database URL: ${Firebase.app().options.databaseURL}');
   print('   Storage bucket: ${Firebase.app().options.storageBucket}');
  
-  // 2. Prueba de conexión a Firestore
+  // 2. conection test to firestore & auth test (anonymous) & user test
   try {
     final snapshot =
         await FirebaseFirestore.instance
