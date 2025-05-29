@@ -6,6 +6,9 @@ import '../../constants/app_styles.dart';
 import '../../services/expense_service.dart';
 import '../../services/auth_service.dart';
 
+/// Screen displaying income and expense statistics with optional date filters.
+///
+/// Allows users to view totals, recent trends, and a monthly comparison chart.
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
 
@@ -13,16 +16,23 @@ class StatsScreen extends StatefulWidget {
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
+/// State for [StatsScreen], handling data loading, filtering, and UI updates.
 class _StatsScreenState extends State<StatsScreen> {
+  /// Service for retrieving the current user ID and authentication status.
   final _authService = AuthService();
+  /// Service for fetching expense and income statistics from the local database.
   final _expenseService = ExpenseService();
+  /// Holds the loaded or filtered statistics data, including totals and monthly breakdowns.
   Map<String, dynamic>? _stats;
+  /// Indicates whether statistics data is currently being loaded.
   bool _isLoading = true;
 
+  /// User-selected start date for filtering statistics (inclusive).
   DateTime? _startDate;
+  /// User-selected end date for filtering statistics (inclusive).
   DateTime? _endDate;
 
-  // Formateador de moneda con separador de miles y coma decimal
+  /// Formats numbers as Colombian peso currency with thousands separators and two decimals.
   static final _currencyFormatter = NumberFormat.currency(
     locale: 'es_CO',
     symbol: '\$',
@@ -32,17 +42,24 @@ class _StatsScreenState extends State<StatsScreen> {
   @override
   void initState() {
     super.initState();
+    // Automatically load statistics when the widget is first inserted into the widget tree.
     _loadStats();
   }
 
+  /// Loads statistics from [ExpenseService] and applies date filters if set.
   Future<void> _loadStats() async {
     setState(() => _isLoading = true);
+    // Show loading indicator while fetching data.
     try {
+      // Retrieve the current user ID.
       final userId = await _authService.getCurrentUserId();
+      // Exit early if no user or widget is dismissed.
       if (userId == null || !mounted) return;
+      // Fetch raw statistics from the expense service.
       final stats = await _expenseService.getStats(userId);
       if (!mounted) return;
       setState(() {
+        // Apply date range filtering when start or end date is specified.
         if (_startDate != null || _endDate != null) {
           final filtered = {
             'totalIncome': 0.0,
@@ -53,15 +70,20 @@ class _StatsScreenState extends State<StatsScreen> {
 
           for (var cat in stats['monthlyCategoryStats']) {
             final filteredMonthly = <int, num>{};
+            // Iterate through each month's data for this category.
             (cat['monthly'] as Map).forEach((key, value) {
               final monthDate = DateTime(DateTime.now().year, key);
+              // Check if monthDate falls within the selected range.
               if ((_startDate == null || !monthDate.isBefore(_startDate!)) &&
                   (_endDate == null || !monthDate.isAfter(_endDate!))) {
                 filteredMonthly[key] = value;
+                // Accumulate income into filtered totals.
                 if (cat['type'] == 'income') {
                   filtered['totalIncome'] = (filtered['totalIncome'] as double) + value;
                   filtered['total'] = (filtered['total'] as double) + value;
-                } else if (cat['type'] == 'expense') {
+                } 
+                // Accumulate expenses into filtered totals.
+                else if (cat['type'] == 'expense') {
                   filtered['totalExpenses'] = (filtered['totalExpenses'] as double) + value;
                   filtered['total'] = (filtered['total'] as double) - value;
                 }
@@ -75,14 +97,17 @@ class _StatsScreenState extends State<StatsScreen> {
               });
             }
           }
-
+          // Store filtered results in _stats.
           _stats = filtered;
-        } else {
+        } 
+        // No date filters: use original statistics.
+        else {
           _stats = stats;
         }
         _isLoading = false;
       });
     } catch (e) {
+      // Handle exceptions during stats loading.
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,18 +116,22 @@ class _StatsScreenState extends State<StatsScreen> {
     }
   }
 
+  /// Builds the UI: loading spinner, empty state, or statistics view.
   @override
   Widget build(BuildContext context) {
+    // Display loading indicator when data is being fetched.
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    // Show empty state when no statistics are available.
     if (_stats == null) {
       return const Scaffold(
         body: Center(child: Text('No hay datos disponibles')),
       );
     }
 
+    // Extract totals from the stats map.
     final totalIncome = (_stats!['totalIncome'] as num).toDouble();
     final totalExpenses = (_stats!['totalExpenses'] as num).toDouble();
     final total = (_stats!['total'] as num).toDouble();
@@ -140,6 +169,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Date filter controls: select start date, clear filters, and select end date.
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -194,6 +224,7 @@ class _StatsScreenState extends State<StatsScreen> {
                         ),
                         Text('Resumen del Mes', style: AppTextStyles.heading1),
                         const SizedBox(height: 20),
+                        // Summary cards showing total income, expenses, and net balance.
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
@@ -248,6 +279,7 @@ class _StatsScreenState extends State<StatsScreen> {
 
                         // --- Nueva sección: Gráfico de barras ---
                         const SizedBox(height: 20),
+                        // Monthly income vs. expense bar chart section.
                         Text('Ingresos vs Gastos por Mes', style: AppTextStyles.heading2),
                         const SizedBox(height: 10),
                         SizedBox(
@@ -271,6 +303,7 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
+  /// Builds a card displaying a summary metric (title and formatted amount).
   Widget _buildSummaryCard(String title, double amount, Color color) {
     return Card(
       child: Container(
@@ -299,7 +332,9 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
+  /// Prepares bar chart data groups from [_stats] for the chart widget.
   List<BarChartGroupData> _buildBarGroups() {
+    // Cast stats to a list of category-monthly entries.
     final data = (_stats!['monthlyCategoryStats'] as List<dynamic>);
     final meses = <int>{};
     for (var cat in data) {
@@ -313,7 +348,7 @@ class _StatsScreenState extends State<StatsScreen> {
       }
     }
     final sortedMeses = meses.toList()..sort();
-
+    // Generate BarChartGroupData for each month with income and expense.
     return sortedMeses.map((m) {
       double ingreso = 0, gasto = 0;
       for (var cat in data) {
@@ -336,6 +371,7 @@ class _StatsScreenState extends State<StatsScreen> {
     }).toList();
   }
 
+  /// Builds the FL Chart bar chart for monthly income vs expenses.
   Widget _buildMonthlyIncomeExpenseChart() {
     final barGroups = _buildBarGroups();
     return BarChart(

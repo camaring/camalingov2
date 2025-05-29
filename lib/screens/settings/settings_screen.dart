@@ -3,6 +3,9 @@ import '../../constants.dart';
 import '../../services/auth_service.dart';
 import '../../services/streak_service.dart';
 
+/// Screen for user settings including profile info, streak status, and account actions.
+///
+/// Displays user details, allows editing profile, password reset, sign out, and account deletion.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -10,21 +13,38 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+/// State for [SettingsScreen], handling user and streak data loading and UI actions.
 class _SettingsScreenState extends State<SettingsScreen> {
+  /// Authentication service for user profile operations.
   final _auth = AuthService();
+
+  /// Currently loaded user profile, or null if none.
   User? _user;
+
+  /// Indicates whether user or streak data is being loaded.
   bool _loading = true;
+
+  /// True if the daily activity streak is currently active.
   bool _streakOn = false;
+
+  /// Number of consecutive days the user has recorded activity.
   int _streakCount = 0;
 
   @override
   void initState() {
     super.initState();
+    // Automatically load streak status and user profile on widget creation.
+
+    // Load the current activity streak status and count.
     _loadStreak();
+
+    // Load the current authenticated user's profile.
     _loadUser();
   }
 
+  /// Loads the user profile from secure storage and updates loading state.
   Future<void> _loadUser() async {
+    // Show loading indicator.
     setState(() => _loading = true);
     final user = await _auth.getCurrentUser();
     setState(() {
@@ -33,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  /// Retrieves streak active status and count from [StreakService].
   Future<void> _loadStreak() async {
     final on = await StreakService.isStreakOn();
     final count = await StreakService.getStreakCount();
@@ -43,6 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  /// Opens a dialog to edit name and email, then reloads user profile.
   Future<void> _editProfile() async {
     if (_user == null) return;
     final nameCtrl = TextEditingController(text: _user!.name);
@@ -114,6 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Prompts the user to confirm password reset and sends reset email.
   Future<void> _resetPassword() async {
     if (_user == null) return;
     final confirm = await showDialog<bool>(
@@ -142,11 +165,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Signs out the current user and navigates to the login screen.
   Future<void> _signOut() async {
     await _auth.logout();
     Navigator.of(context).pushReplacementNamed('/login');
   }
 
+  /// Prompts confirmation and deletes the user account, then navigates to login.
   Future<void> _deleteAccount() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -172,14 +197,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Builds the settings UI: header, action list, and version info.
   @override
   Widget build(BuildContext context) {
-    // 1. Mientras cargan los datos, mostramos un spinner.
+    // Show loading spinner while data is loading.
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // 2. Si ya cargó y no hay usuario, mostramos mensaje o redirigimos.
+    // If no user is loaded, display a message.
     if (_user == null) {
       return Scaffold(
         backgroundColor: AppColors.backgroundGrey,
@@ -192,8 +218,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // 3. Usuario válido: construimos la UI normal.
     final user = _user!;
 
+    // Root scaffold of the settings screen.
     return Scaffold(
       backgroundColor: AppColors.backgroundGrey,
+      // AppBar showing settings icon and title.
       appBar: AppBar(
         title: Row(
           children: [
@@ -209,10 +237,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppColors.backgroundGrey,
         elevation: 0,
       ),
+      // Scrollable area containing settings content.
       body: SingleChildScrollView(
+        // Column layout stacking header and action items.
         child: Column(
           children: [
-            // Header
+            // Profile header: avatar, name, email, and streak indicator.
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
@@ -255,8 +285,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // Opciones
+            // User account actions.
+            // Divider between profile header and actions.
             const Divider(height: 1),
+            // Option to edit user name and email.
             ListTile(
               leading: const Icon(Icons.edit),
               title: const Text('Edit Profile'),
@@ -264,6 +296,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _editProfile,
             ),
             const Divider(height: 1),
+            // Option to send a password reset email.
             ListTile(
               leading: const Icon(Icons.lock_reset),
               title: const Text('Reset Password'),
@@ -271,6 +304,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _resetPassword,
             ),
             const Divider(height: 1),
+            // Option to sign out of the application.
             ListTile(
               leading: const Icon(Icons.exit_to_app),
               title: const Text('Sign Out'),
@@ -278,6 +312,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _signOut,
             ),
             const Divider(height: 1),
+            // Option to delete the user account permanently.
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
               title: const Text(
@@ -289,7 +324,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const Divider(height: 1),
 
-            // Versión
+            // App version display.
+            // Display current application version.
             const SizedBox(height: 24),
             Text(
               'Version 1.0.0',

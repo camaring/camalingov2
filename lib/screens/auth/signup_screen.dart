@@ -1,8 +1,22 @@
+/// SignupScreen module: provides UI to create a new user account.
+/// Includes form fields for name, email, password, password confirmation,
+/// and handles local and Firebase sign-up with email verification.
+
+// ────────────────────────────────────────────────────────────────────────────
+// Flutter framework imports
+// ────────────────────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
+// ────────────────────────────────────────────────────────────────────────────
+// Local app imports (constants and services)
+// ────────────────────────────────────────────────────────────────────────────
 import '../../constants.dart';
 import '../../services/auth_service.dart';
+// ────────────────────────────────────────────────────────────────────────────
+// External Firebase imports
+// ────────────────────────────────────────────────────────────────────────────
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// Stateful widget for user sign-up screen.
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -10,20 +24,30 @@ class SignupScreen extends StatefulWidget {
   State<SignupScreen> createState() => SignupScreenState();
 }
 
+/// State class for [SignupScreen], managing form and sign-up logic.
 class SignupScreenState extends State<SignupScreen> {
+  /// Key to validate and save the sign-up form.
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  /// Controller for the name text field.
   final _nameController = TextEditingController();
+  /// Controller for the email text field.
+  final _emailController = TextEditingController();
+  /// Controller for the password text field.
+  final _passwordController = TextEditingController();
+  /// Controller for the confirm password text field.
+  final _confirmPasswordController = TextEditingController();
 
   @override
+  /// Builds the sign-up form UI inside a scaffold.
   Widget build(BuildContext context) {
+    // Root scaffold for the sign-up screen.
     return Scaffold(
       backgroundColor: AppColors.white,
+      // AppBar with back button to return to previous screen.
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
+        // Back button: navigates to the previous screen.
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.black),
           onPressed: () {
@@ -35,6 +59,7 @@ class SignupScreenState extends State<SignupScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
+          // Form widget containing input fields and validation.
           child: Form(
             key: _formKey,
             child: Column(
@@ -45,6 +70,7 @@ class SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
                 Text('Create Account', style: AppTextStyles.heading1),
                 const SizedBox(height: 40),
+                // Name input field with validation for non-empty.
                 TextFormField(
                   controller: _nameController,
                   decoration: InputDecoration(
@@ -61,6 +87,7 @@ class SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
+                // Email input field with basic non-empty validation.
                 TextFormField(
                   controller: _emailController,
                   decoration: InputDecoration(
@@ -77,6 +104,7 @@ class SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
+                // Password input field (obscured) with non-empty validation.
                 TextFormField(
                   controller: _passwordController,
                   decoration: InputDecoration(
@@ -94,6 +122,7 @@ class SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
+                // Confirm password field, must match the password field.
                 TextFormField(
                   controller: _confirmPasswordController,
                   decoration: InputDecoration(
@@ -111,10 +140,12 @@ class SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 const SizedBox(height: 30),
+                // Sign Up button: validates form and triggers sign-up logic.
                 ElevatedButton(
                   onPressed: () async {
+                    // Validate all form fields before proceeding.
                     if (_formKey.currentState!.validate()) {
-                      // Local sign up
+                      // Perform local sign-up using AuthService.
                       final authService = AuthService();
                       await authService.signup(
                         email: _emailController.text,
@@ -124,17 +155,21 @@ class SignupScreenState extends State<SignupScreen> {
 
                       if (!mounted) return;
 
+                      // Create Firebase user with email and password.
                       try {
                         final cred = await FirebaseAuth.instance
                             .createUserWithEmailAndPassword(
                               email: _emailController.text.trim(),
                               password: _passwordController.text.trim(),
                             );
+                        // Set the Firebase user display name.
                         await cred.user?.updateDisplayName(
                           _nameController.text.trim(),
                         );
+                        // Send email verification to the new user.
                         await cred.user?.sendEmailVerification();
 
+                        // Notify user that verification email has been sent.
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -144,14 +179,18 @@ class SignupScreenState extends State<SignupScreen> {
                           ),
                         );
 
+                        // Sign out from Firebase to force re-login after verification.
                         await FirebaseAuth.instance.signOut();
 
                         if (!mounted) return;
 
+                        // Navigate to login screen after successful sign-up.
                         Navigator.pushReplacementNamed(context, '/login');
                       } on FirebaseAuthException catch (e) {
+                        // Handle Firebase sign-up errors and notify user.
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
+                            // Show error message returned by Firebase or a generic one.
                             content: Text(
                               e.message ?? 'Error al registrar usuario',
                             ),

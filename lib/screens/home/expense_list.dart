@@ -1,5 +1,16 @@
+/// ExpenseList module: Displays a detailed, filterable list of user expenses.
+/// Includes daily streak indicator, summary cards, swipe-to-delete, and edit dialog.
+// ────────────────────────────────────────────────────────────────────────────
+// Flutter framework imports
+// ────────────────────────────────────────────────────────────────────────────
 import 'package:flutter/material.dart';
+// ────────────────────────────────────────────────────────────────────────────
+// External package imports
+// ────────────────────────────────────────────────────────────────────────────
 import 'package:intl/intl.dart';
+// ────────────────────────────────────────────────────────────────────────────
+// Local app imports (constants, models, services)
+// ────────────────────────────────────────────────────────────────────────────
 import '../../constants.dart';
 import '../../models/expense.dart';
 import '../../models/category.dart';
@@ -7,9 +18,13 @@ import '../../services/expense_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/streak_service.dart';
 
+/// Main widget for displaying and managing the expenses list.
 class ExpenseList extends StatefulWidget {
+  /// Key for external refresh control: parent can call `refreshExpenses()`.
   final GlobalKey<ExpenseListState> expenseListKey;
+  /// Map from category ID to its metadata (name, icon).
   final Map<int, Category> categoriesMap;
+  /// Currently applied category filter (null means no filter).
   final int? selectedCategoryId;
 
   const ExpenseList({
@@ -24,25 +39,38 @@ class ExpenseList extends StatefulWidget {
 }
 
 class ExpenseListState extends State<ExpenseList> {
+  /// Formatter for Colombian peso currency, e.g. $1.234,56.
   static final _currencyFormatter = NumberFormat.currency(
     locale: 'es_CO',
     symbol: '\$',
     decimalDigits: 2,
   );
 
+  /// List of expenses after applying filter.
   List<Expense> _expenses = [];
+  /// Total amount of expenses (sum of negative values).
   double _totalExpenses = 0;
+  /// Total amount of incomes (sum of positive values).
   double _totalIncome = 0;
+  /// Net balance (income + expenses).
   double _total = 0;
+  /// True while data is being fetched and UI should show a loader.
   bool _isLoading = false;
 
+  /// Tracks daily activity streak:
+  /// - _streakOn: whether user has activity today
+  /// - _streakCount: number of consecutive active days
   bool _streakOn = false;
   int _streakCount = 0;
 
+  /// Service instances:
+  /// - _authService: to obtain current user ID
+  /// - _expenseService: to fetch and update expense data
   final _authService = AuthService();
   final _expenseService = ExpenseService();
 
   @override
+  /// Called once when widget is inserted. Starts loading streak and expenses.
   void initState() {
     super.initState();
     _loadStreak();
@@ -50,6 +78,8 @@ class ExpenseListState extends State<ExpenseList> {
   }
 
   @override
+  /// Called when widget config changes (e.g., selectedCategoryId).
+  /// Reloads expenses if the category filter has changed.
   void didUpdateWidget(covariant ExpenseList old) {
     super.didUpdateWidget(old);
     if (old.selectedCategoryId != widget.selectedCategoryId) {
@@ -57,9 +87,13 @@ class ExpenseListState extends State<ExpenseList> {
     }
   }
 
+  /// Records today's activity and updates streakOn and streakCount.
   Future<void> _loadStreak() async {
+    // Record activity for today to maintain streak.
     await StreakService.recordActivity();
+    // Check if the streak is active today.
     final on = await StreakService.isStreakOn();
+    // Get the total count of consecutive active days.
     final count = await StreakService.getStreakCount();
     if (!mounted) return;
     setState(() {
@@ -68,16 +102,23 @@ class ExpenseListState extends State<ExpenseList> {
     });
   }
 
+  /// Fetches expenses and stats, applies filtering, and updates totals.
   Future<void> _loadExpenses() async {
+    // Avoid overlapping requests if a load is already underway.
     if (_isLoading) return;
+    // Show loading spinner.
     setState(() => _isLoading = true);
     try {
+      // Retrieve current user ID; abort if null.
       final userId = await _authService.getCurrentUserId();
       if (userId == null) return;
 
+      // Load overall income and expense statistics.
       final stats = await _expenseService.getStats(userId);
+      // Load detailed list of all expenses.
       final allExpenses = await _expenseService.getExpenses(userId);
 
+      // Apply category filter if selectedCategoryId is set.
       final filtered =
           widget.selectedCategoryId == null
               ? allExpenses
@@ -86,6 +127,7 @@ class ExpenseListState extends State<ExpenseList> {
                   .toList();
 
       if (!mounted) return;
+      // Update UI state with fetched data.
       setState(() {
         _expenses = filtered;
         _totalExpenses = (stats['totalExpenses'] as num).toDouble();
@@ -93,6 +135,7 @@ class ExpenseListState extends State<ExpenseList> {
         _total = (stats['total'] as num).toDouble();
       });
     } catch (e) {
+      // On error, log and notify user.
       if (mounted) {
         debugPrint('Error loading expenses: $e');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -100,27 +143,34 @@ class ExpenseListState extends State<ExpenseList> {
         );
       }
     } finally {
+      // Hide loading spinner.
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   // Permite refrescar la lista desde fuera (por ejemplo, al agregar un gasto)
+  /// Public method to refresh expenses list and streak, callable by parent.
   Future<void> refreshExpenses() async {
     await _loadExpenses();
     await _loadStreak();
   }
 
+  /// Opens a modal dialog to edit the selected expense.
   void _showEditExpenseDialog(Expense expense) {
+    // Initialize text controllers with the current expense values.
     final amountCtrl = TextEditingController(
       text: expense.amount.abs().toStringAsFixed(2),
     );
     final descCtrl = TextEditingController(text: expense.description);
     bool isExpense = expense.amount < 0;
 
+    // Show dialog with fields to update amount and description.
     showDialog<void>(
       context: context,
       builder:
-          (ctx) => StatefulBuilder(
+          (ctx) =>
+              // Use StatefulBuilder for localized state updates within dialog.
+              StatefulBuilder(
             builder:
                 (ctx, setState) => AlertDialog(
                   title: const Text(
@@ -177,6 +227,7 @@ class ExpenseListState extends State<ExpenseList> {
                       child: const Text('Cancelar'),
                     ),
                     ElevatedButton(
+                      // On save: validate input, update the expense, and refresh UI.
                       onPressed: () async {
                         final raw = double.tryParse(
                           amountCtrl.text.replaceAll(',', '.'),
@@ -212,11 +263,15 @@ class ExpenseListState extends State<ExpenseList> {
   }
 
   @override
+  /// Builds the widget tree: header (streak + summaries) and list of expenses.
   Widget build(BuildContext context) {
+    // ────────────────────────────────────────────────────────────────────────────
+    // Main layout: safe area wrapping header and content sections
+    // ────────────────────────────────────────────────────────────────────────────
     return SafeArea(
       child: Column(
         children: [
-          // --- Resumen ---
+          // Header section: daily streak indicator with icon and day count
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -276,7 +331,7 @@ class ExpenseListState extends State<ExpenseList> {
                     ],
                   ),
                 ),
-                // summary cards
+                // Summary cards: display total expenses, net balance, total incomes
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -296,7 +351,9 @@ class ExpenseListState extends State<ExpenseList> {
             ),
           ),
 
-          // --- Lista de transacciones ---
+
+
+          // Content section: show loading spinner, empty state, or the expenses list
           Expanded(
             child:
                 _isLoading
@@ -316,9 +373,13 @@ class ExpenseListState extends State<ExpenseList> {
                         final cat = widget.categoriesMap[expense.categoryId];
                         final emoji = cat?.icon ?? '❓';
                         final catName = cat?.name ?? '';
+                        // ────────────────────────────────────────────────────────────────────────────
+                        // Dismissible entry: swipe left to delete this expense with confirmation UI
+                        // ────────────────────────────────────────────────────────────────────────────
                         return Dismissible(
                           key: ValueKey(expense.id),
                           direction: DismissDirection.endToStart,
+                          // Background shown while swiping (red delete area with icon)
                           background: Container(
                             color: Colors.redAccent,
                             alignment: Alignment.centerRight,
@@ -340,6 +401,7 @@ class ExpenseListState extends State<ExpenseList> {
                             await _loadExpenses();
                             await _loadStreak();
                           },
+                          // Tap the list tile to edit the expense.
                           child: ListTile(
                             onTap: () => _showEditExpenseDialog(expense),
                             leading: SizedBox(
@@ -399,6 +461,7 @@ class ExpenseListState extends State<ExpenseList> {
     );
   }
 
+  /// Renders a summary card displaying a financial metric (title + value).
   Widget _buildSummaryCard(String title, double amount) {
     final color =
         title == 'Gastos'
@@ -407,20 +470,24 @@ class ExpenseListState extends State<ExpenseList> {
             ? const Color(0xFF43A047)
             : const Color(0xFFFBC02D);
 
+    // Card container for metric, with colored border and light background tint
     return Card(
       elevation: 0,
+      // Rounded border with color matching the metric theme
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: color.withAlpha(50), width: 1),
       ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        // Inner container decoration: background fill and matching border radius
         decoration: BoxDecoration(
           color: color.withAlpha(5),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
+            // Metric title label
             Text(
               title,
               style: TextStyle(
@@ -430,6 +497,7 @@ class ExpenseListState extends State<ExpenseList> {
               ),
             ),
             const SizedBox(height: 8),
+            // Metric value formatted and scaled to fit available space
             FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(

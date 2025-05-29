@@ -3,15 +3,28 @@ import '../models/category.dart' as category_model;
 import '../models/category_monthly_data.dart';
 import 'database_helper.dart';
 
+/// Service for CRUD operations on expenses and aggregated statistics.
+///
+/// Utilizes SQLite via [DatabaseHelper] and implements simple in-memory caching.
 class ExpenseService {
+  /// Singleton instance of the SQLite database helper.
   final _db = DatabaseHelper.instance;
+  /// Cached results of the most recent statistics query.
   Map<String, dynamic>? _cachedStats;
+  /// Cached list of the most recent expenses fetched.
   List<expense_model.Expense>? _cachedExpenses;
+  /// User ID associated with the current cache entries.
   String? _cachedUserId;
+  /// Timestamp of when statistics were last fetched and cached.
   DateTime? _lastStatsUpdate;
+  /// Timestamp of when expenses were last fetched and cached.
   DateTime? _lastExpensesUpdate;
 
+  /// Retrieves the latest expenses for [userId], ordered by date descending.
+  ///
+  /// Uses in-memory cache if data was fetched less than 1 minute ago.
   Future<List<expense_model.Expense>> getExpenses(String userId) async {
+    // Use cached expenses if still fresh.
     if (_cachedExpenses != null &&
         _cachedUserId == userId &&
         _lastExpensesUpdate != null &&
@@ -19,6 +32,7 @@ class ExpenseService {
             const Duration(minutes: 1)) {
       return _cachedExpenses!;
     }
+    // Open database and query recent expenses.
     final db = await _db.database;
     final expensesMaps = await db.query(
       'expenses',
@@ -35,6 +49,7 @@ class ExpenseService {
     return expenses;
   }
 
+  /// Inserts a new expense into the database and clears relevant caches.
   Future<void> addExpense(expense_model.Expense expense) async {
     final db = await _db.database;
     await db.insert('expenses', expense.toMap());
@@ -42,6 +57,7 @@ class ExpenseService {
     _cachedExpenses = null;
   }
 
+  /// Deletes the expense with [id] and clears relevant caches.
   Future<void> deleteExpense(int id) async {
     final db = await _db.database;
     await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
@@ -49,6 +65,7 @@ class ExpenseService {
     _cachedExpenses = null;
   }
 
+  /// Updates an existing expense and clears relevant caches.
   Future<void> updateExpense(expense_model.Expense expense) async {
     final db = await _db.database;
     await db.update(
@@ -61,18 +78,23 @@ class ExpenseService {
     _cachedExpenses = null;
   }
 
+  /// Returns all category definitions from the database.
   Future<List<category_model.Category>> getCategories() async {
+    // Query categories table.
     final db = await _db.database;
     final catsMaps = await db.query('categories');
     return catsMaps.map((c) => category_model.Category.fromMap(c)).toList();
   }
 
+  /// Inserts a new category into the database.
   Future<void> addCategory(category_model.Category category) async {
     final db = await _db.database;
     await db.insert('categories', category.toMap());
   }
 
-  /// Devuelve totales y datos para la gráfica (incluye `icon`)
+  /// Retrieves total income, expenses, and per-category monthly stats for [userId].
+  ///
+  /// Aggregates data for the last 30 days and the last 6 months, including category icons.
   Future<Map<String, dynamic>> getStats(String userId) async {
     // Usar caché si está disponible
     if (_cachedStats != null &&
@@ -80,12 +102,13 @@ class ExpenseService {
         _lastStatsUpdate != null &&
         DateTime.now().difference(_lastStatsUpdate!) <
             const Duration(minutes: 2)) {
+      // Cache hit: return previously computed statistics.
       return _cachedStats!;
     }
 
     final db = await _db.database;
 
-    // 1) Totales de los últimos 30 días
+    // 1. Compute totals for the last 30 days.
     final totalsQuery = await db.rawQuery(
       '''
       SELECT 
@@ -103,7 +126,7 @@ class ExpenseService {
         (totalsRow['totalExpenses'] as num?)?.toDouble() ?? 0.0;
     final total = (totalsRow['total'] as num?)?.toDouble() ?? 0.0;
 
-    // 2) Datos por categoría y mes (últimos 6 meses), incluyendo icon
+    // 2. Fetch per-category sums for each month over the last 6 months.
     final rawStats = await db.rawQuery(
       '''
       SELECT
@@ -121,7 +144,7 @@ class ExpenseService {
       [userId],
     );
 
-    // 3) Agrupar datos para la UI
+    // 3. Transform raw query results into grouped structures for UI.
     final tempValues = <String, Map<int, double>>{};
     final tempTypes = <String, String>{};
     final tempIcons = <String, String>{};
@@ -148,7 +171,7 @@ class ExpenseService {
           };
         }).toList();
 
-    // 4) Cachear y devolver
+    // 4. Store computed results in cache and return.
     _cachedStats = {
       'totalIncome': totalIncome,
       'totalExpenses': totalExpenses,
@@ -160,8 +183,10 @@ class ExpenseService {
     return _cachedStats!;
   }
 
+  /// Returns total incomes and expenses for [userId] in the current month.
   Future<Map<String, double>> getMonthlyExpensesIncomes(String userId) async {
     final db = await _db.database;
+    // Aggregate expenses and incomes since the start of the month.
     final res = await db.rawQuery(
       '''
       SELECT
@@ -179,11 +204,13 @@ class ExpenseService {
     };
   }
 
+  /// Returns total amounts per category for each of the last [months] months.
   Future<List<CategoryMonthlyData>> getCategoryMonthlyTotals(
     String userId, {
     int months = 6,
   }) async {
     final db = await _db.database;
+    // Query sum of amounts grouped by category and month.
     final rows = await db.rawQuery(
       '''
       SELECT

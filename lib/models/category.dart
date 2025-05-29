@@ -1,11 +1,20 @@
+/// Category model representing an expense category.
+///
+/// Contains an optional [id], a [name], and an [icon] emoji.
 class Category {
+  /// Unique identifier for the category (null if not persisted yet).
   final int? id;
-  final String name;
-  final String icon; // aquí guardamos el emoji
 
+  /// Display name of the category.
+  final String name;
+
+  /// Emoji icon representing the category.
+  final String icon;
+
+  /// Creates a new [Category] with the given [id], [name], and [icon].
   Category({this.id, required this.name, required this.icon});
 
-  /// Mapa de emojis por defecto según el nombre de categoría
+  /// Default mapping of category names to emoji icons.
   static const Map<String, String> _defaultEmojis = {
     'Alimentación': '🍔',
     'Transporte': '🚌',
@@ -17,8 +26,9 @@ class Category {
     'Otros': '📦',
   };
 
-  /// Convierte el modelo a Map para SQLite
+  /// Serializes this [Category] into a map for SQLite storage.
   Map<String, dynamic> toMap() {
+    // Map each field to its corresponding database column.
     return {
       'id': id,
       'name': name,
@@ -26,15 +36,18 @@ class Category {
     };
   }
 
-  /// Crea un Category a partir de Map;
-  /// si no hay icon (o está vacío), usa el por defecto
+  /// Deserializes a map from the database into a [Category].
+  ///
+  /// If the stored [icon] is empty, uses the default emoji for [name].
   static Category fromMap(Map<String, dynamic> map) {
+    // Extract name and icon values from the map.
     final name = map['name'] as String;
     final dbIcon = map['icon'] as String? ?? '';
 
     return Category(
       id: map['id'] as int?,
       name: name,
+      // Use stored icon if present; otherwise fall back to default emoji.
       icon:
           dbIcon.isNotEmpty
               ? dbIcon

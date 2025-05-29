@@ -1,6 +1,13 @@
 import 'dart:math';
 
+/// Service providing financial saving tips.
+///
+/// This class manages a collection of predefined saving tips and
+/// exposes a method to retrieve one at random.
 class TipsService {
+  /// Predefined list of saving tips in Spanish.
+  /// 
+  /// Each entry is a suggestion to help users manage and reduce expenses.
   static final List<String> _savingTips = [
     'Aplica la regla 50/30/20: 50% para necesidades, 30% para deseos y 20% para ahorro',
     'Cocina en casa en lugar de comer fuera',
@@ -33,9 +40,15 @@ class TipsService {
     'Participa en grupos de intercambio o trueque de artículos',
   ];
 
-  /// Devuelve un tip aleatorio de ahorro
+  /// Returns a random saving tip from the predefined list.
+  ///
+  /// Uses Dart's [Random] class to pick an index within the list bounds.
   static String getRandomTip() {
+    // Instantiate the random number generator.
     final random = Random();
-    return _savingTips[random.nextInt(_savingTips.length)];
+    // Generate a random index based on the list length.
+    final index = random.nextInt(_savingTips.length);
+    // Return the tip corresponding to the random index.
+    return _savingTips[index];
   }
 }
