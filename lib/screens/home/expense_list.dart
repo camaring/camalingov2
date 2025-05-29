@@ -1,5 +1,6 @@
 /// ExpenseList module: Displays a detailed, filterable list of user expenses.
 /// Includes daily streak indicator, summary cards, swipe-to-delete, and edit dialog.
+library;
 // ────────────────────────────────────────────────────────────────────────────
 // Flutter framework imports
 // ────────────────────────────────────────────────────────────────────────────

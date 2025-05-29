@@ -1,6 +1,7 @@
 /// SignupScreen module: provides UI to create a new user account.
 /// Includes form fields for name, email, password, password confirmation,
 /// and handles local and Firebase sign-up with email verification.
+library;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Flutter framework imports

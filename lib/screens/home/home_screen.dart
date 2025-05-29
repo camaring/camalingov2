@@ -2,6 +2,7 @@
 ///
 /// Provides the main navigation scaffold, transaction list with filtering,
 /// and dialogs for adding categories and transactions.
+library;
 // Flutter framework imports.
 import 'package:flutter/material.dart';
 // Package for masked currency input controllers.

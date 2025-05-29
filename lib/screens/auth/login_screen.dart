@@ -1,6 +1,7 @@
 /// LoginScreen module: provides UI for user authentication.
 /// Includes email/password fields, validation, Firebase login,
 /// email verification flow, and local credential storage.
+library;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Flutter framework imports
