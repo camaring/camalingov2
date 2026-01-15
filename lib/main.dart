@@ -11,6 +11,8 @@ import 'screens/auth/signup_screen.dart';
 
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'package:camalingo/services/no_service.dart';
+
 /// Application entry point.
 /// 
 /// Initializes Firebase services and tests Firestore and Auth connections
@@ -33,7 +35,9 @@ Future<void> main() async {
   print('   Messaging URL: ${Firebase.app().options.messagingSenderId}');
   print('   Database URL: ${Firebase.app().options.databaseURL}');
   print('   Storage bucket: ${Firebase.app().options.storageBucket}');
- 
+  print('   Project number: ${Firebase.app().options.trackingId}');
+  
+
   // 2. Test Firestore connectivity by reading a known document.
   try {
     final snapshot =
@@ -67,13 +71,28 @@ Future<void> main() async {
   } catch (e) {
     print('❌ Error en Auth anon: $e');
   }
-  // 4. Test email/password authentication.
+  // 4. Test email/password authentication with correct credentials.
   try {
     final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: 'camiman13@hotmail.com',
       password: 'camilo12',
     );
     print('✅ Signed in user: ${cred.user!.email}');
+    print('✅ User UID: ${cred.user!.uid}');
+    print('✅ User email: ${cred.user!.emailVerified}');
+    print('✅ User display name: ${cred.user!.displayName}');
+  } catch (e) {
+    print('❌ Error en Auth email/pass: $e');
+  }
+    // 4. Test email/password authentication with incorrect credentials.
+  try {
+    final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: 'camarin296@gmail.com',
+      password: 'asdfghjkl13=',
+    );
+    print('✅ Signed in user: ${cred.user!.email}');
+    print('✅ User UID: ${cred.user!.uid}');
+    print('✅ User email: ${cred.user!.emailVerified}');
   } catch (e) {
     print('❌ Error en Auth email/pass: $e');
   }
@@ -81,6 +100,19 @@ Future<void> main() async {
   // Initialize locale-specific date formatting for Colombian Spanish.
   await initializeDateFormatting('es_CO', null);
 
+
+  // 🔹 Call No-as-a-Service and print the random "no" in console
+  final noService = NoService();
+  try {
+    final reason = await noService.getNoReason();
+    print('🙅 NO-as-a-Service says: $reason');
+  } catch (e) {
+    print('❌ Error getting NO from service: $e');
+  }
+
+// calling without try-catch to see the print directly of no service response to implenenrt  insde pop-up window in the app 
+final reason = await noService.getNoReason();
+print('test of no service: $reason');
   // Launch the Flutter application.
   runApp(const MyApp());
 }
